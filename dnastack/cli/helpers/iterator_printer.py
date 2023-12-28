@@ -1,3 +1,4 @@
+from shutil import get_terminal_size
 import sys
 
 import csv
@@ -21,7 +22,8 @@ def show_iterator(output_format: str,
                   limit: Optional[int] = None,
                   item_marker: Optional[Callable[[Any], Optional[str]]] = None,
                   decimal_as: str = 'string',
-                  sort_keys: bool = True) -> int:
+                  sort_keys: bool = True,
+                  width: Optional[int] = None) -> int:
     """ Display the result from the iterator """
     if output_format == OutputFormat.JSON:
         printer = JsonIteratorPrinter()
@@ -29,6 +31,8 @@ def show_iterator(output_format: str,
         printer = YamlIteratorPrinter()
     elif output_format == OutputFormat.CSV:
         printer = CsvIteratorPrinter()
+    elif output_format == OutputFormat.TABLE:
+        printer = TableIteratorPrinter()
     else:
         raise ValueError(f'The given output format ({output_format}) is not available.')
 
@@ -37,13 +41,15 @@ def show_iterator(output_format: str,
                          limit=limit,
                          item_marker=item_marker,
                          decimal_as=decimal_as,
-                         sort_keys=sort_keys)
+                         sort_keys=sort_keys,
+                         width=width)
 
 
 class OutputFormat:
     JSON = 'json'
     YAML = 'yaml'
     CSV = 'csv'
+    TABLE = 'table'
 
     DEFAULT_FOR_RESOURCE = YAML
     DEFAULT_FOR_DATA = JSON
@@ -56,8 +62,56 @@ class BaseIteratorPrinter:
               limit: Optional[int] = None,
               item_marker: Optional[Callable[[Any], Optional[str]]] = None,
               decimal_as: str = 'string',
-              sort_keys: bool = True):
+              sort_keys: bool = True,
+              width: Optional[int] = None):
         raise NotImplementedError()
+
+
+def truncate(value, width):
+        string = value if isinstance(value, str) else str(value)
+        return string if len(string) <= width else string[:width]
+
+"""
+Outputs as a table.
+Each column has a fixed width and is separated by a space.
+Data in the column exceeding the width will be truncated.
+Assumes the shape of the rows are consistent.
+"""
+class TableIteratorPrinter(BaseIteratorPrinter):
+    def print(self,
+              iterator: Iterable[Any],
+              transform: Optional[Callable[[I], R]] = None,
+              limit: Optional[int] = None,
+              item_marker: Optional[Callable[[Any], Optional[str]]] = None,  # NOTE: Declared but ignored
+              decimal_as: str = 'string',
+              sort_keys: bool = True,
+              width: Optional[int] = None) -> int:
+        row_count = 0
+        columns = 0
+        format_string = ""
+
+        for row in iterator:
+            if limit and row_count >= limit:
+                break
+
+            entry = transform(row) if transform else row
+            normalized = normalize(entry, map_decimal=str if decimal_as == 'string' else float, sort_keys=sort_keys)
+
+            if row_count == 0:
+                columns = len(normalized.values())
+                format_string = ("{:{width}} " * columns).rstrip()
+
+            if width == None:
+                terminal_columns = get_terminal_size((80,20)).columns
+                # Account for a space between each column
+                width = (terminal_columns - columns + 1) // columns
+
+            values = [truncate(value, width) for value in normalized.values()]
+            click.echo(format_string.format(*values, width=width))
+
+            row_count += 1
+
+        return row_count
 
 
 class JsonIteratorPrinter(BaseIteratorPrinter):
@@ -67,7 +121,8 @@ class JsonIteratorPrinter(BaseIteratorPrinter):
               limit: Optional[int] = None,
               item_marker: Optional[Callable[[Any], Optional[str]]] = None,  # NOTE: Declared but ignored
               decimal_as: str = 'string',
-              sort_keys: bool = True) -> int:
+              sort_keys: bool = True,
+              width: Optional[int] = None) -> int:
         row_count = 0
 
         for row in iterator:
@@ -114,7 +169,8 @@ class CsvIteratorPrinter(BaseIteratorPrinter):
               limit: Optional[int] = None,
               item_marker: Optional[Callable[[Any], Optional[str]]] = None,  # NOTE: Declared but ignored
               decimal_as: str = 'string',
-              sort_keys: bool = True  # NOTE: Declared but ignored
+              sort_keys: bool = True,  # NOTE: Declared but ignored
+              width: Optional[int] = None
               ) -> int:
         row_count = 0
 
@@ -146,7 +202,8 @@ class YamlIteratorPrinter(BaseIteratorPrinter):
               limit: Optional[int] = None,
               item_marker: Optional[Callable[[Any], Optional[str]]] = None,
               decimal_as: str = 'string',
-              sort_keys: bool = True  # NOTE: Declared but ignored
+              sort_keys: bool = True,  # NOTE: Declared but ignored
+              width: Optional[int] = None
               ) -> int:
         row_count = 0
 
