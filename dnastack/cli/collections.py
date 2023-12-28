@@ -319,7 +319,14 @@ def list_items(context: Optional[str],
          [
              COLLECTION_ID_CLI_ARG_SPEC,
              DECIMAL_POINT_OUTPUT_SPEC,
-             DATA_OUTPUT_SPEC
+             DATA_OUTPUT_SPEC,
+             ArgumentSpec(
+                 name='width',
+                 arg_names=['--width', '-w'],
+                 as_option=True,
+                 type=int,
+                 help='The width of each column in the table',
+             )
          ])
 def query_collection(context: Optional[str],
                      endpoint_id: Optional[str],
@@ -327,10 +334,12 @@ def query_collection(context: Optional[str],
                      query: str,
                      decimal_as: str = 'string',
                      no_auth: bool = False,
-                     output: Optional[str] = None):
+                     output: Optional[str] = None,
+                     width: Optional[int] = None
+                     ):
     """ Query data """
     client = _switch_to_data_connect(_get_context(context), _get(context, endpoint_id), collection, no_auth=no_auth)
-    return handle_query(client, query, decimal_as=decimal_as, no_auth=no_auth, output_format=output)
+    return handle_query(client, query, decimal_as=decimal_as, no_auth=no_auth, output_format=output, width=width)
 
 
 @click.group("tables")

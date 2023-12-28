@@ -10,7 +10,8 @@ def handle_query(data_connect: DataConnectClient,
                  decimal_as: str = 'string',
                  no_auth: bool = False,
                  output_format: Optional[str] = None,
-                 allow_using_query_from_file: bool = False):
+                 allow_using_query_from_file: bool = False,
+                 width: Optional[int] = None):
     actual_query = query
 
     if allow_using_query_from_file:
@@ -23,4 +24,4 @@ def handle_query(data_connect: DataConnectClient,
                 raise IOError(f'File not found: {query_file_path}')
 
     iterator = data_connect.query(actual_query, no_auth=no_auth)
-    show_iterator(output_format, iterator, decimal_as=decimal_as, sort_keys=False)
+    show_iterator(output_format, iterator, decimal_as=decimal_as, sort_keys=False, width=width)
